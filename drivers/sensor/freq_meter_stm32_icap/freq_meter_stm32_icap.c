@@ -119,11 +119,18 @@ static int freq_meter_stm32_icap_calc_freq(const struct device *dev)
 	uint32_t PSC;
 	uint32_t ICxPSC;
 	uint32_t ICxPolarity;
+	uint32_t data_samples0 = data->samples[0];
+	uint32_t data_samples1 = data->samples[1];
+	uint32_t data_index = data->index;
 
-	if (data->samples[1] > data->samples[0]) {
-		uwDiffCapture = (data->samples[1] - data->samples[0]);
-	} else if (data->samples[1] < data->samples[0]) {
-		uwDiffCapture = ((cfg->max_top_value - data->samples[0]) + data->samples[1]) + 1;
+	if ((data_samples1 > data_samples0) && (data_index == 0)){
+		uwDiffCapture = (data_samples1 - data_samples0);
+	} else if ((data_samples1 > data_samples0) && (data_index == 1)){
+		uwDiffCapture = ((cfg->max_top_value - data_samples1) + data_samples0) + 1;
+	} else if ((data_samples1 < data_samples0) && (data_index == 0)){
+		uwDiffCapture = ((cfg->max_top_value - data_samples0) + data_samples1) + 1;
+	} else if ((data_samples1 < data_samples0) && (data_index == 1)){
+		uwDiffCapture = ((cfg->max_top_value - data_samples0) + data_samples1) + 1;
 		if (!IS_TIM_32B_COUNTER_INSTANCE(cfg->timer)) {
 			uwDiffCapture = cfg->max_top_value - uwDiffCapture;
 		}
@@ -267,7 +274,6 @@ static void freq_meter_stm32_icap_signal_handler(const struct device *dev, uint3
 	if (data->index == 0) {
 		data->samples[0] = get_timer_capture[id](cfg->timer);
 		data->index      = 1;
-
 		return;
 	}
 
@@ -428,8 +434,9 @@ static int freq_meter_stm32_icap_init(const struct device *dev)
 
 	LOG_DBG("TIM_CHANNEL: %x", cfg->tim_channel);
 
+	LL_TIM_SetClockDivision(cfg->timer,  LL_TIM_CLOCKDIVISION_DIV4);
 	LL_TIM_IC_SetActiveInput(cfg->timer, cfg->tim_channel, LL_TIM_ACTIVEINPUT_DIRECTTI);
-	LL_TIM_IC_SetFilter(cfg->timer, cfg->tim_channel, LL_TIM_IC_FILTER_FDIV1);
+	LL_TIM_IC_SetFilter(cfg->timer, cfg->tim_channel, LL_TIM_IC_FILTER_FDIV32_N8);
 	LL_TIM_IC_SetPrescaler(cfg->timer, cfg->tim_channel, LL_TIM_ICPSC_DIV1);
 	LL_TIM_IC_SetPolarity(cfg->timer, cfg->tim_channel, LL_TIM_IC_POLARITY_RISING);
 
